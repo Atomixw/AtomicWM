@@ -1,7 +1,13 @@
-use crate::geometry::Rect;
+use crate::geometry::{Point, Rect, Size, Vector};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WindowId(pub u64);
+
+impl WindowId {
+    pub fn new(value: u64) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WindowNode {
@@ -9,4 +15,34 @@ pub struct WindowNode {
     pub title: String,
     pub app_id: String,
     pub rect: Rect,
+    pub focused: bool,
+}
+
+impl WindowNode {
+    pub fn new(
+        id: WindowId,
+        title: impl Into<String>,
+        app_id: impl Into<String>,
+        rect: Rect,
+    ) -> Self {
+        Self {
+            id,
+            title: title.into(),
+            app_id: app_id.into(),
+            rect,
+            focused: false,
+        }
+    }
+
+    pub fn move_by(&mut self, delta: Vector) {
+        self.rect = self.rect.translate(delta.dx, delta.dy);
+    }
+
+    pub fn resize(&mut self, size: Size) {
+        self.rect = Rect::from_origin_size(self.rect.origin, size);
+    }
+
+    pub fn center(&self) -> Point {
+        self.rect.center()
+    }
 }
