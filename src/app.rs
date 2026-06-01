@@ -1,12 +1,20 @@
-pub struct App;
+use crate::config::{Config, ConfigError};
+
+pub struct App {
+    config: Config,
+}
 
 impl App {
-    pub fn new() -> Self {
-        Self
+    pub fn new() -> Result<Self, ConfigError> {
+        Ok(Self {
+            config: Config::load()?,
+        })
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("AtomicWM skeleton initialized.");
+        let _config = &self.config;
+
+        println!("AtomicWM skeleton initialized. Config loaded.");
         Ok(())
     }
 }

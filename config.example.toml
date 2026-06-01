@@ -1,0 +1,36 @@
+# Example AtomicWM configuration.
+
+[general]
+mod_key = "Super"
+focus_follows_mouse = false
+
+[camera]
+pan_step = 80.0
+zoom_step = 1.1
+min_zoom = 0.1
+max_zoom = 4.0
+
+[appearance]
+border_width = 2.0
+gap = 8.0
+background = "#111111"
+focused_border = "#7C3AED"
+normal_border = "#333333"
+
+[keybindings]
+quit = "Super+Shift+Q"
+spawn_terminal = "Super+Enter"
+zoom_in = "Super+Equal"
+zoom_out = "Super+Minus"
+reset_zoom = "Super+0"
+pan_left = "Super+Ctrl+Left"
+pan_right = "Super+Ctrl+Right"
+pan_up = "Super+Ctrl+Up"
+pan_down = "Super+Ctrl+Down"
+focus_left = "Super+Left"
+focus_right = "Super+Right"
+focus_up = "Super+Up"
+focus_down = "Super+Down"
+
+[commands]
+terminal = "alacritty"
