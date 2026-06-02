@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     geometry::{Point, Rect, Size, Vector},
     input::Action,
-    window::{Direction, WindowId, WindowNode},
+    window::{Direction, PlacementMode, PlacementRequest, WindowId, WindowNode},
 };
 
 #[derive(Debug)]
@@ -56,13 +56,19 @@ fn write_simulation_output(
 
 pub fn build_initial_state() -> SimulationState {
     let mut world = World::new();
+    let camera = Camera::default_for_viewport(Size::new(1920.0, 1080.0));
 
-    world.add_window(WindowNode::new(
+    world.add_window_with_placement(
         WindowId::new(1),
         "Terminal",
         "Alacritty",
-        Rect::new(100.0, 100.0, 800.0, 500.0),
-    ));
+        &camera,
+        PlacementRequest::new(
+            Size::new(800.0, 500.0),
+            PlacementMode::AtWorldPosition(Point::new(100.0, 100.0)),
+            8.0,
+        ),
+    );
     world.add_window(WindowNode::new(
         WindowId::new(2),
         "Browser",
@@ -80,7 +86,7 @@ pub fn build_initial_state() -> SimulationState {
 
     SimulationState {
         world,
-        camera: Camera::default_for_viewport(Size::new(1920.0, 1080.0)),
+        camera,
         done: false,
     }
 }
@@ -98,6 +104,34 @@ pub fn apply_scripted_actions(
         Action::CenterFocused,
         Action::FitAll,
     ];
+
+    let center_request = PlacementRequest::new(
+        Size::new(640.0, 360.0),
+        PlacementMode::ViewportCenter,
+        config.appearance.gap,
+    );
+    state.world.add_window_with_placement(
+        WindowId::new(4),
+        "Notes",
+        "notes",
+        &state.camera,
+        center_request,
+    );
+    writeln!(writer, "  add window 4 with viewport_center placement")?;
+
+    let near_focused_request = PlacementRequest::new(
+        Size::new(500.0, 400.0),
+        PlacementMode::NearFocused,
+        config.appearance.gap,
+    );
+    state.world.add_window_with_placement(
+        WindowId::new(5),
+        "Chat",
+        "chat",
+        &state.camera,
+        near_focused_request,
+    );
+    writeln!(writer, "  add window 5 with near_focused placement")?;
 
     for action in actions {
         apply_action(&mut writer, state, config, action)?;
@@ -131,14 +165,12 @@ pub fn apply_action(
         Action::FocusUp => focus_in_direction(state, Direction::Up),
         Action::FocusDown => focus_in_direction(state, Direction::Down),
         Action::CenterFocused => {
-            if let Some(window) = state.world.focused_window() {
-                state.camera.center_on(window.center());
-            }
+            state.world.center_focused_window(&mut state.camera);
         }
         Action::FitAll => {
-            if let Some(bounds) = state.world.bounds() {
-                state.camera.fit_rect(bounds, config.appearance.gap);
-            }
+            state
+                .world
+                .fit_all(&mut state.camera, config.appearance.gap);
         }
     }
 
