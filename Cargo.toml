@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
+smithay = { version = "0.7", default-features = false, features = ["wayland_frontend"] }
 toml = "0.8"

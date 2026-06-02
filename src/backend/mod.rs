@@ -1,1 +1,4 @@
-//! Backend integration will be added when Wayland compositor work begins.
+mod runtime;
+mod wayland;
+
+pub use runtime::{Backend, BackendConfig, BackendError};

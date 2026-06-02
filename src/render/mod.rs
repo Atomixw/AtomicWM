@@ -1,1 +1,3 @@
-//! Rendering will be added after the world and surface models are defined.
+pub mod clear;
+
+pub use clear::{ClearFrame, ClearRenderer, Color, ColorParseError, OutputState};

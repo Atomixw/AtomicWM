@@ -1,10 +1,10 @@
 # AtomicWM
 
-AtomicWM is not implemented yet.
+AtomicWM is not a usable compositor yet.
 
-This repository currently contains the Rust project skeleton for the planned compositor. It does not include Wayland, Smithay, rendering, input handling, or compositor logic.
+This repository currently contains internal models, simulation mode, and a minimal Smithay-based Wayland backend.
 
-The next step is to build out geometry and canvas logic.
+AtomicWM can initialize minimal Wayland compositor infrastructure and run a clear-screen render path. It does not display client windows yet.
 
 Run the internal simulation with:
 
