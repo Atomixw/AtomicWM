@@ -55,6 +55,11 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 - `focus_down`
 - `center_focused`
 - `fit_all`
+- `move_cluster_left`
+- `move_cluster_right`
+- `move_cluster_up`
+- `move_cluster_down`
+- `fit_focused_cluster`
 
 `[commands]`
 

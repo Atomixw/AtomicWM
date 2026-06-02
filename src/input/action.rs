@@ -15,6 +15,11 @@ pub enum Action {
     FocusDown,
     CenterFocused,
     FitAll,
+    MoveClusterLeft,
+    MoveClusterRight,
+    MoveClusterUp,
+    MoveClusterDown,
+    FitFocusedCluster,
 }
 
 impl Action {
@@ -35,6 +40,11 @@ impl Action {
             Self::FocusDown => "focus_down",
             Self::CenterFocused => "center_focused",
             Self::FitAll => "fit_all",
+            Self::MoveClusterLeft => "move_cluster_left",
+            Self::MoveClusterRight => "move_cluster_right",
+            Self::MoveClusterUp => "move_cluster_up",
+            Self::MoveClusterDown => "move_cluster_down",
+            Self::FitFocusedCluster => "fit_focused_cluster",
         }
     }
 }

@@ -2,8 +2,8 @@ use crate::{
     canvas::Camera,
     geometry::{Rect, Size, Vector},
     window::{
-        Direction, PlacementMode, PlacementRequest, WindowId, WindowNode, find_snap_adjustment,
-        find_window_in_direction,
+        Cluster, ClusterGraph, ClusterId, Direction, PlacementMode, PlacementRequest, WindowId,
+        WindowNode, find_snap_adjustment, find_window_in_direction,
     },
 };
 
@@ -205,6 +205,45 @@ impl World {
         camera.fit_rect(rect, padding);
         true
     }
+
+    pub fn clusters(&self, tolerance: f64) -> Vec<Cluster> {
+        ClusterGraph::from_windows(&self.windows, tolerance).clusters(&self.windows)
+    }
+
+    pub fn cluster_for_window(&self, id: WindowId, tolerance: f64) -> Option<Cluster> {
+        ClusterGraph::from_windows(&self.windows, tolerance).cluster_for_window(id, &self.windows)
+    }
+
+    pub fn focused_cluster(&self, tolerance: f64) -> Option<Cluster> {
+        self.cluster_for_window(self.focused_window_id()?, tolerance)
+    }
+
+    pub fn move_cluster(&mut self, id: ClusterId, delta: Vector, tolerance: f64) -> bool {
+        let Some(cluster) = self
+            .clusters(tolerance)
+            .into_iter()
+            .find(|cluster| cluster.id == id)
+        else {
+            return false;
+        };
+
+        for window_id in cluster.windows {
+            if let Some(window) = self.window_mut(window_id) {
+                window.move_by(delta);
+            }
+        }
+
+        true
+    }
+
+    pub fn fit_focused_cluster(&self, camera: &mut Camera, padding: f64, tolerance: f64) -> bool {
+        let Some(cluster) = self.focused_cluster(tolerance) else {
+            return false;
+        };
+
+        camera.fit_rect(cluster.bounds, padding);
+        true
+    }
 }
 
 fn rect_centered_at(center: crate::geometry::Point, size: Size) -> Rect {
@@ -222,7 +261,7 @@ mod tests {
     use crate::{
         canvas::Camera,
         geometry::{Point, Rect, Size, Vector},
-        window::{Direction, PlacementMode, PlacementRequest, WindowId, WindowNode},
+        window::{ClusterId, Direction, PlacementMode, PlacementRequest, WindowId, WindowNode},
     };
 
     fn window(id: u64, rect: Rect) -> WindowNode {
@@ -571,5 +610,101 @@ mod tests {
     #[test]
     fn no_windows_returns_none_for_directional_focus() {
         assert_eq!(World::new().focus_in_direction(Direction::Right), None);
+    }
+
+    #[test]
+    fn clusters_return_stable_ordering() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(300.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(400.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(3, Rect::new(0.0, 0.0, 100.0, 100.0)));
+
+        let clusters = world.clusters(1.0);
+
+        assert_eq!(clusters.len(), 2);
+        assert_eq!(
+            clusters[0].windows,
+            vec![WindowId::new(1), WindowId::new(2)]
+        );
+        assert_eq!(clusters[1].windows, vec![WindowId::new(3)]);
+    }
+
+    #[test]
+    fn cluster_for_window_returns_expected_cluster() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(100.0, 0.0, 100.0, 100.0)));
+
+        let cluster = world.cluster_for_window(WindowId::new(2), 1.0).unwrap();
+
+        assert_eq!(cluster.windows, vec![WindowId::new(1), WindowId::new(2)]);
+    }
+
+    #[test]
+    fn focused_cluster_returns_cluster_containing_focused_window() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(100.0, 0.0, 100.0, 100.0)));
+        world.focus_window(WindowId::new(2));
+
+        let cluster = world.focused_cluster(1.0).unwrap();
+
+        assert_eq!(cluster.windows, vec![WindowId::new(1), WindowId::new(2)]);
+    }
+
+    #[test]
+    fn move_cluster_moves_all_windows_in_cluster() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(100.0, 0.0, 100.0, 100.0)));
+
+        assert!(world.move_cluster(ClusterId::new(1), Vector::new(20.0, 10.0), 1.0));
+        assert_eq!(
+            world.window(WindowId::new(1)).unwrap().rect(),
+            Rect::new(20.0, 10.0, 100.0, 100.0)
+        );
+        assert_eq!(
+            world.window(WindowId::new(2)).unwrap().rect(),
+            Rect::new(120.0, 10.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn move_cluster_does_not_move_windows_outside_cluster() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(100.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(3, Rect::new(400.0, 0.0, 100.0, 100.0)));
+
+        world.move_cluster(ClusterId::new(1), Vector::new(20.0, 0.0), 1.0);
+
+        assert_eq!(
+            world.window(WindowId::new(3)).unwrap().rect(),
+            Rect::new(400.0, 0.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn fit_focused_cluster_returns_false_without_focused_window() {
+        let world = World::new();
+        let mut camera = Camera::default_for_viewport(Size::new(800.0, 600.0));
+
+        assert!(!world.fit_focused_cluster(&mut camera, 8.0, 1.0));
+    }
+
+    #[test]
+    fn fit_focused_cluster_fits_cluster_bounds() {
+        let mut world = World::new();
+        let mut camera = Camera::default_for_viewport(Size::new(800.0, 600.0));
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(100.0, 0.0, 100.0, 100.0)));
+        world.focus_window(WindowId::new(1));
+
+        assert!(world.fit_focused_cluster(&mut camera, 8.0, 1.0));
+        assert!(
+            camera
+                .viewport_rect_world()
+                .contains_rect(world.focused_cluster(1.0).unwrap().bounds)
+        );
     }
 }

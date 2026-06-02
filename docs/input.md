@@ -21,6 +21,11 @@ Keybinding strings from config are parsed into small typed values. Those values 
 - `focus_down`
 - `center_focused`
 - `fit_all`
+- `move_cluster_left`
+- `move_cluster_right`
+- `move_cluster_up`
+- `move_cluster_down`
+- `fit_focused_cluster`
 
 ## Default Keybindings
 
@@ -39,6 +44,11 @@ Keybinding strings from config are parsed into small typed values. Those values 
 - `focus_down = "Super+Down"`
 - `center_focused = "Super+C"`
 - `fit_all = "Super+W"`
+- `move_cluster_left = "Super+Shift+Ctrl+Left"`
+- `move_cluster_right = "Super+Shift+Ctrl+Right"`
+- `move_cluster_up = "Super+Shift+Ctrl+Up"`
+- `move_cluster_down = "Super+Shift+Ctrl+Down"`
+- `fit_focused_cluster = "Super+Shift+W"`
 
 ## Parser Scope
 

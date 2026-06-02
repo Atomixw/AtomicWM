@@ -8,6 +8,8 @@ use crate::{
     window::{Direction, PlacementMode, PlacementRequest, WindowId, WindowNode},
 };
 
+const CLUSTER_TOLERANCE: f64 = 1.0;
+
 #[derive(Debug)]
 pub struct SimulationState {
     pub world: World,
@@ -176,6 +178,33 @@ pub fn apply_action(
                 .world
                 .fit_all(&mut state.camera, config.appearance.gap);
         }
+        Action::MoveClusterLeft => move_focused_cluster(
+            state,
+            Vector::new(-config.camera.pan_step, 0.0),
+            CLUSTER_TOLERANCE,
+        ),
+        Action::MoveClusterRight => move_focused_cluster(
+            state,
+            Vector::new(config.camera.pan_step, 0.0),
+            CLUSTER_TOLERANCE,
+        ),
+        Action::MoveClusterUp => move_focused_cluster(
+            state,
+            Vector::new(0.0, -config.camera.pan_step),
+            CLUSTER_TOLERANCE,
+        ),
+        Action::MoveClusterDown => move_focused_cluster(
+            state,
+            Vector::new(0.0, config.camera.pan_step),
+            CLUSTER_TOLERANCE,
+        ),
+        Action::FitFocusedCluster => {
+            state.world.fit_focused_cluster(
+                &mut state.camera,
+                config.appearance.gap,
+                CLUSTER_TOLERANCE,
+            );
+        }
     }
 
     Ok(())
@@ -195,6 +224,12 @@ fn focus_in_direction(state: &mut SimulationState, direction: Direction) {
         if let Some(window) = state.world.focused_window() {
             state.camera.center_on(window.center());
         }
+    }
+}
+
+fn move_focused_cluster(state: &mut SimulationState, delta: Vector, tolerance: f64) {
+    if let Some(cluster) = state.world.focused_cluster(tolerance) {
+        state.world.move_cluster(cluster.id, delta, tolerance);
     }
 }
 
@@ -229,7 +264,48 @@ fn demonstrate_snapping(
     let after = state.world.window(WindowId::new(7)).unwrap().rect();
     writeln!(writer, "  snap window 7 after {}", format_rect(after))?;
 
+    state.world.add_window(WindowNode::new(
+        WindowId::new(8),
+        "Cluster Separate",
+        "cluster-separate",
+        Rect::new(4200.0, 0.0, 300.0, 200.0),
+    ));
+    state.world.focus_window(WindowId::new(6));
+
+    print_clusters(&mut writer, state, CLUSTER_TOLERANCE)?;
+    writeln!(writer, "  move focused cluster right")?;
+    apply_action(&mut writer, state, config, Action::MoveClusterRight)?;
+    writeln!(writer, "  fit focused cluster")?;
+    apply_action(&mut writer, state, config, Action::FitFocusedCluster)?;
+
     Ok(())
+}
+
+fn print_clusters(
+    mut writer: impl Write,
+    state: &SimulationState,
+    tolerance: f64,
+) -> Result<(), Box<dyn Error>> {
+    let clusters = state.world.clusters(tolerance);
+    writeln!(writer, "  clusters: {}", clusters.len())?;
+
+    for cluster in clusters {
+        writeln!(
+            writer,
+            "    cluster {} windows={}",
+            cluster.id.0,
+            format_window_ids(&cluster.windows)
+        )?;
+    }
+
+    Ok(())
+}
+
+fn format_window_ids(ids: &[WindowId]) -> String {
+    ids.iter()
+        .map(|id| id.value().to_string())
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn print_camera(mut writer: impl Write, camera: &Camera) -> Result<(), Box<dyn Error>> {
@@ -276,7 +352,12 @@ mod tests {
     use super::{
         apply_action, apply_scripted_actions, build_initial_state, write_simulation_output,
     };
-    use crate::{config::Config, input::Action, window::WindowId};
+    use crate::{
+        config::Config,
+        geometry::{Point, Rect},
+        input::Action,
+        window::{WindowId, WindowNode},
+    };
 
     #[test]
     fn simulation_can_run_without_panic() {
@@ -304,7 +385,7 @@ mod tests {
             .collect();
 
         assert_eq!(focused.len(), 1);
-        assert_eq!(focused[0].id, WindowId::new(2));
+        assert_eq!(focused[0].id, WindowId::new(6));
     }
 
     #[test]
@@ -381,5 +462,68 @@ mod tests {
 
         let focused_center = state.world.focused_window().unwrap().center();
         assert_eq!(state.camera.position, focused_center);
+    }
+
+    #[test]
+    fn moving_cluster_changes_every_window_in_cluster() {
+        let mut state = build_initial_state();
+        state.world.add_window(WindowNode::new(
+            WindowId::new(10),
+            "Left",
+            "test",
+            Rect::new(3000.0, 3000.0, 100.0, 100.0),
+        ));
+        state.world.add_window(WindowNode::new(
+            WindowId::new(11),
+            "Right",
+            "test",
+            Rect::new(3100.0, 3000.0, 100.0, 100.0),
+        ));
+        state.world.focus_window(WindowId::new(10));
+
+        apply_action(
+            Vec::new(),
+            &mut state,
+            &Config::default(),
+            Action::MoveClusterRight,
+        )
+        .unwrap();
+
+        assert_eq!(
+            state.world.window(WindowId::new(10)).unwrap().rect(),
+            Rect::new(3080.0, 3000.0, 100.0, 100.0)
+        );
+        assert_eq!(
+            state.world.window(WindowId::new(11)).unwrap().rect(),
+            Rect::new(3180.0, 3000.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn fitting_focused_cluster_changes_camera() {
+        let mut state = build_initial_state();
+        state.world.add_window(WindowNode::new(
+            WindowId::new(10),
+            "Left",
+            "test",
+            Rect::new(3000.0, 3000.0, 100.0, 100.0),
+        ));
+        state.world.add_window(WindowNode::new(
+            WindowId::new(11),
+            "Right",
+            "test",
+            Rect::new(3100.0, 3000.0, 100.0, 100.0),
+        ));
+        state.world.focus_window(WindowId::new(10));
+
+        apply_action(
+            Vec::new(),
+            &mut state,
+            &Config::default(),
+            Action::FitFocusedCluster,
+        )
+        .unwrap();
+
+        assert_eq!(state.camera.position, Point::new(3100.0, 3050.0));
     }
 }

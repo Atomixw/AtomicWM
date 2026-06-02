@@ -187,10 +187,15 @@ pub struct KeybindingsConfig {
     pub focus_down: String,
     pub center_focused: String,
     pub fit_all: String,
+    pub move_cluster_left: String,
+    pub move_cluster_right: String,
+    pub move_cluster_up: String,
+    pub move_cluster_down: String,
+    pub fit_focused_cluster: String,
 }
 
 impl KeybindingsConfig {
-    fn entries(&self) -> [(&'static str, &str); 15] {
+    fn entries(&self) -> [(&'static str, &str); 20] {
         [
             ("keybindings.quit", &self.quit),
             ("keybindings.spawn_terminal", &self.spawn_terminal),
@@ -207,6 +212,11 @@ impl KeybindingsConfig {
             ("keybindings.focus_down", &self.focus_down),
             ("keybindings.center_focused", &self.center_focused),
             ("keybindings.fit_all", &self.fit_all),
+            ("keybindings.move_cluster_left", &self.move_cluster_left),
+            ("keybindings.move_cluster_right", &self.move_cluster_right),
+            ("keybindings.move_cluster_up", &self.move_cluster_up),
+            ("keybindings.move_cluster_down", &self.move_cluster_down),
+            ("keybindings.fit_focused_cluster", &self.fit_focused_cluster),
         ]
     }
 }
@@ -229,6 +239,11 @@ impl Default for KeybindingsConfig {
             focus_down: "Super+Down".to_string(),
             center_focused: "Super+C".to_string(),
             fit_all: "Super+W".to_string(),
+            move_cluster_left: "Super+Shift+Ctrl+Left".to_string(),
+            move_cluster_right: "Super+Shift+Ctrl+Right".to_string(),
+            move_cluster_up: "Super+Shift+Ctrl+Up".to_string(),
+            move_cluster_down: "Super+Shift+Ctrl+Down".to_string(),
+            fit_focused_cluster: "Super+Shift+W".to_string(),
         }
     }
 }

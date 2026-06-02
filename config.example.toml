@@ -38,6 +38,11 @@ focus_up = "Super+Up"
 focus_down = "Super+Down"
 center_focused = "Super+C"
 fit_all = "Super+W"
+move_cluster_left = "Super+Shift+Ctrl+Left"
+move_cluster_right = "Super+Shift+Ctrl+Right"
+move_cluster_up = "Super+Shift+Ctrl+Up"
+move_cluster_down = "Super+Shift+Ctrl+Down"
+fit_focused_cluster = "Super+Shift+W"
 
 [commands]
 terminal = "alacritty"

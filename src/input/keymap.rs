@@ -52,6 +52,31 @@ impl KeyMap {
                 Action::CenterFocused,
             ),
             ("fit_all", &config.keybindings.fit_all, Action::FitAll),
+            (
+                "move_cluster_left",
+                &config.keybindings.move_cluster_left,
+                Action::MoveClusterLeft,
+            ),
+            (
+                "move_cluster_right",
+                &config.keybindings.move_cluster_right,
+                Action::MoveClusterRight,
+            ),
+            (
+                "move_cluster_up",
+                &config.keybindings.move_cluster_up,
+                Action::MoveClusterUp,
+            ),
+            (
+                "move_cluster_down",
+                &config.keybindings.move_cluster_down,
+                Action::MoveClusterDown,
+            ),
+            (
+                "fit_focused_cluster",
+                &config.keybindings.fit_focused_cluster,
+                Action::FitFocusedCluster,
+            ),
         ];
 
         let mut bindings = HashMap::new();
@@ -96,7 +121,7 @@ mod tests {
     fn builds_from_default_config() {
         let keymap = KeyMap::from_config(&Config::default()).unwrap();
 
-        assert_eq!(keymap.bindings().count(), 15);
+        assert_eq!(keymap.bindings().count(), 20);
     }
 
     #[test]
