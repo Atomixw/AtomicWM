@@ -1,4 +1,7 @@
-use crate::geometry::{Point, Rect, Size, Vector};
+use crate::{
+    geometry::{Point, Rect, Size, Vector},
+    window::DecorationMode,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WindowId(pub u64);
@@ -20,6 +23,7 @@ pub struct WindowNode {
     pub app_id: String,
     pub rect: Rect,
     pub focused: bool,
+    pub decoration_mode: DecorationMode,
 }
 
 impl WindowNode {
@@ -35,6 +39,7 @@ impl WindowNode {
             app_id: app_id.into(),
             rect,
             focused: false,
+            decoration_mode: DecorationMode::Border,
         }
     }
 

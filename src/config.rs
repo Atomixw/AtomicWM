@@ -6,6 +6,8 @@ use std::{
 
 use serde::Deserialize;
 
+use crate::window::DecorationMode;
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -61,6 +63,14 @@ impl Config {
 
         validate_non_negative("appearance.border_width", self.appearance.border_width)?;
         validate_non_negative("appearance.gap", self.appearance.gap)?;
+        validate_non_negative(
+            "appearance.titlebar_height",
+            self.appearance.titlebar_height,
+        )?;
+        validate_non_negative(
+            "appearance.titlebar_button_size",
+            self.appearance.titlebar_button_size,
+        )?;
         validate_color("appearance.background", &self.appearance.background)?;
         validate_color("appearance.focused_border", &self.appearance.focused_border)?;
         validate_color("appearance.normal_border", &self.appearance.normal_border)?;
@@ -132,8 +142,11 @@ impl Default for CameraConfig {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppearanceConfig {
+    pub decoration_mode: DecorationMode,
     pub border_width: f64,
     pub gap: f64,
+    pub titlebar_height: f64,
+    pub titlebar_button_size: f64,
     pub background: String,
     pub focused_border: String,
     pub normal_border: String,
@@ -142,8 +155,11 @@ pub struct AppearanceConfig {
 impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
+            decoration_mode: DecorationMode::Border,
             border_width: 2.0,
             gap: 8.0,
+            titlebar_height: 28.0,
+            titlebar_button_size: 14.0,
             background: "#111111".to_string(),
             focused_border: "#7C3AED".to_string(),
             normal_border: "#333333".to_string(),
@@ -437,6 +453,52 @@ mod tests {
     fn invalid_colors_fail_validation() {
         let mut config = Config::default();
         config.appearance.background = "111111".to_string();
+
+        assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
+    }
+
+    #[test]
+    fn default_decoration_config_is_valid() {
+        let config = Config::default();
+
+        assert_eq!(
+            config.appearance.decoration_mode,
+            crate::window::DecorationMode::Border
+        );
+        assert_eq!(config.appearance.titlebar_height, 28.0);
+        assert_eq!(config.appearance.titlebar_button_size, 14.0);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn invalid_decoration_mode_fails_toml_parsing() {
+        let path = temp_file_path("invalid-decoration.toml");
+        fs::write(
+            &path,
+            r#"
+                [appearance]
+                decoration_mode = "floating"
+            "#,
+        )
+        .unwrap();
+
+        let error = Config::load_from_path(&path).unwrap_err();
+
+        assert!(matches!(error, ConfigError::Parse { .. }));
+    }
+
+    #[test]
+    fn negative_titlebar_height_fails_validation() {
+        let mut config = Config::default();
+        config.appearance.titlebar_height = -1.0;
+
+        assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
+    }
+
+    #[test]
+    fn negative_titlebar_button_size_fails_validation() {
+        let mut config = Config::default();
+        config.appearance.titlebar_button_size = -1.0;
 
         assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
     }

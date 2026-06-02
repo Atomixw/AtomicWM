@@ -26,8 +26,11 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 
 `[appearance]`
 
+- `decoration_mode`
 - `border_width`
 - `gap`
+- `titlebar_height`
+- `titlebar_button_size`
 - `background`
 - `focused_border`
 - `normal_border`
@@ -73,6 +76,8 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 - `camera.max_zoom` must be greater than `camera.min_zoom`
 - `appearance.border_width` must be greater than or equal to `0`
 - `appearance.gap` must be greater than or equal to `0`
+- `appearance.titlebar_height` must be greater than or equal to `0`
+- `appearance.titlebar_button_size` must be greater than or equal to `0`
 - `snapping.threshold` must be greater than or equal to `0`
 - `snapping.gap` must be greater than or equal to `0`
 - colors must use `#RRGGBB`

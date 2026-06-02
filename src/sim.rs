@@ -44,6 +44,7 @@ fn write_simulation_output(
 
     writeln!(writer, "Actions:")?;
     apply_scripted_actions(&mut writer, state, config)?;
+    print_focused_decoration(&mut writer, state, config)?;
     writeln!(writer)?;
 
     writeln!(writer, "Final camera:")?;
@@ -295,6 +296,47 @@ fn print_clusters(
             "    cluster {} windows={}",
             cluster.id.0,
             format_window_ids(&cluster.windows)
+        )?;
+    }
+
+    Ok(())
+}
+
+fn print_focused_decoration(
+    mut writer: impl Write,
+    state: &SimulationState,
+    config: &Config,
+) -> Result<(), Box<dyn Error>> {
+    let Some(id) = state.world.focused_window_id() else {
+        return Ok(());
+    };
+    let Some(geometry) = state
+        .world
+        .window_decoration_geometry(id, &config.appearance)
+    else {
+        return Ok(());
+    };
+
+    writeln!(
+        writer,
+        "  decoration content {}",
+        format_rect(geometry.content_rect)
+    )?;
+    writeln!(
+        writer,
+        "  decoration outer {}",
+        format_rect(geometry.outer_rect)
+    )?;
+
+    if let Some(titlebar) = geometry.titlebar_rect {
+        writeln!(writer, "  decoration titlebar {}", format_rect(titlebar))?;
+    }
+
+    if let Some(close_button) = geometry.close_button_rect {
+        writeln!(
+            writer,
+            "  decoration close_button {}",
+            format_rect(close_button)
         )?;
     }
 

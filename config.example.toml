@@ -11,8 +11,11 @@ min_zoom = 0.1
 max_zoom = 4.0
 
 [appearance]
+decoration_mode = "border"
 border_width = 2.0
 gap = 8.0
+titlebar_height = 28.0
+titlebar_button_size = 14.0
 background = "#111111"
 focused_border = "#7C3AED"
 normal_border = "#333333"

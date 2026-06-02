@@ -1,9 +1,11 @@
 use crate::{
     canvas::Camera,
+    config::AppearanceConfig,
     geometry::{Rect, Size, Vector},
     window::{
-        Cluster, ClusterGraph, ClusterId, Direction, PlacementMode, PlacementRequest, WindowId,
-        WindowNode, find_snap_adjustment, find_window_in_direction,
+        Cluster, ClusterGraph, ClusterId, DecorationGeometry, Direction, PlacementMode,
+        PlacementRequest, WindowId, WindowNode, compute_decoration_geometry, find_snap_adjustment,
+        find_window_in_direction,
     },
 };
 
@@ -244,6 +246,22 @@ impl World {
         camera.fit_rect(cluster.bounds, padding);
         true
     }
+
+    pub fn window_decoration_geometry(
+        &self,
+        id: WindowId,
+        appearance: &AppearanceConfig,
+    ) -> Option<DecorationGeometry> {
+        let window = self.window(id)?;
+
+        Some(compute_decoration_geometry(
+            window.rect(),
+            window.decoration_mode,
+            appearance.border_width,
+            appearance.titlebar_height,
+            appearance.titlebar_button_size,
+        ))
+    }
 }
 
 fn rect_centered_at(center: crate::geometry::Point, size: Size) -> Rect {
@@ -261,7 +279,10 @@ mod tests {
     use crate::{
         canvas::Camera,
         geometry::{Point, Rect, Size, Vector},
-        window::{ClusterId, Direction, PlacementMode, PlacementRequest, WindowId, WindowNode},
+        window::{
+            ClusterId, DecorationMode, Direction, PlacementMode, PlacementRequest, WindowId,
+            WindowNode,
+        },
     };
 
     fn window(id: u64, rect: Rect) -> WindowNode {
@@ -705,6 +726,39 @@ mod tests {
             camera
                 .viewport_rect_world()
                 .contains_rect(world.focused_cluster(1.0).unwrap().bounds)
+        );
+    }
+
+    #[test]
+    fn focused_window_can_produce_decoration_geometry() {
+        let mut world = World::new();
+        let mut window = window(1, Rect::new(10.0, 20.0, 300.0, 200.0));
+        window.decoration_mode = DecorationMode::Titlebar;
+        world.add_window(window);
+        world.focus_window(WindowId::new(1));
+
+        let geometry = world
+            .window_decoration_geometry(
+                world.focused_window_id().unwrap(),
+                &crate::config::AppearanceConfig::default(),
+            )
+            .unwrap();
+
+        assert_eq!(geometry.content_rect, Rect::new(10.0, 20.0, 300.0, 200.0));
+        assert!(geometry.titlebar_rect.is_some());
+    }
+
+    #[test]
+    fn missing_window_returns_no_decoration_geometry() {
+        let world = World::new();
+
+        assert!(
+            world
+                .window_decoration_geometry(
+                    WindowId::new(99),
+                    &crate::config::AppearanceConfig::default()
+                )
+                .is_none()
         );
     }
 }
