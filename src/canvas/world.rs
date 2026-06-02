@@ -1,6 +1,6 @@
 use crate::{
     geometry::{Rect, Size, Vector},
-    window::{WindowId, WindowNode},
+    window::{Direction, WindowId, WindowNode, find_window_in_direction},
 };
 
 #[derive(Debug, Default)]
@@ -45,6 +45,17 @@ impl World {
         self.windows.iter().find(|window| window.focused)
     }
 
+    pub fn focused_window_id(&self) -> Option<WindowId> {
+        self.focused_window().map(|window| window.id)
+    }
+
+    pub fn focus_first(&mut self) -> Option<WindowId> {
+        let id = self.windows.first()?.id;
+
+        self.focus_window(id);
+        Some(id)
+    }
+
     pub fn focus_window(&mut self, id: WindowId) -> bool {
         if !self.windows.iter().any(|window| window.id == id) {
             return false;
@@ -55,6 +66,17 @@ impl World {
         }
 
         true
+    }
+
+    pub fn focus_in_direction(&mut self, direction: Direction) -> Option<WindowId> {
+        let Some(focused_id) = self.focused_window_id() else {
+            return self.focus_first();
+        };
+
+        let selected = find_window_in_direction(&self.windows, focused_id, direction)?;
+        self.focus_window(selected);
+
+        Some(selected)
     }
 
     pub fn move_window(&mut self, id: WindowId, delta: Vector) -> bool {
@@ -88,7 +110,7 @@ mod tests {
     use super::World;
     use crate::{
         geometry::{Rect, Size, Vector},
-        window::{WindowId, WindowNode},
+        window::{Direction, WindowId, WindowNode},
     };
 
     fn window(id: u64, rect: Rect) -> WindowNode {
@@ -124,6 +146,66 @@ mod tests {
         assert_eq!(world.focused_window().map(|window| window.id), Some(second));
         assert!(!world.window(first).unwrap().focused);
         assert!(!world.focus_window(WindowId::new(99)));
+    }
+
+    #[test]
+    fn focus_first_returns_none_for_empty_world() {
+        assert_eq!(World::new().focus_first(), None);
+    }
+
+    #[test]
+    fn focus_first_focuses_first_window() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(200.0, 0.0, 100.0, 100.0)));
+
+        assert_eq!(world.focus_first(), Some(WindowId::new(1)));
+        assert_eq!(world.focused_window_id(), Some(WindowId::new(1)));
+    }
+
+    #[test]
+    fn focus_in_direction_updates_focused_window_id() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(200.0, 0.0, 100.0, 100.0)));
+        world.focus_window(WindowId::new(1));
+
+        assert_eq!(
+            world.focus_in_direction(Direction::Right),
+            Some(WindowId::new(2))
+        );
+        assert_eq!(world.focused_window_id(), Some(WindowId::new(2)));
+    }
+
+    #[test]
+    fn focus_in_direction_does_not_change_focus_without_candidate() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(200.0, 0.0, 100.0, 100.0)));
+        world.focus_window(WindowId::new(1));
+
+        assert_eq!(world.focus_in_direction(Direction::Left), None);
+        assert_eq!(world.focused_window_id(), Some(WindowId::new(1)));
+    }
+
+    #[test]
+    fn only_one_window_is_focused_after_navigation() {
+        let mut world = World::new();
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(200.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(3, Rect::new(400.0, 0.0, 100.0, 100.0)));
+        world.focus_window(WindowId::new(1));
+
+        world.focus_in_direction(Direction::Right);
+
+        assert_eq!(
+            world
+                .windows()
+                .iter()
+                .filter(|window| window.focused)
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -169,5 +251,10 @@ mod tests {
     #[test]
     fn empty_world_has_no_bounds() {
         assert_eq!(World::new().bounds(), None);
+    }
+
+    #[test]
+    fn no_windows_returns_none_for_directional_focus() {
+        assert_eq!(World::new().focus_in_direction(Direction::Right), None);
     }
 }

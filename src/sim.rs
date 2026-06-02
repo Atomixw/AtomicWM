@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     geometry::{Point, Rect, Size, Vector},
     input::Action,
-    window::{WindowId, WindowNode},
+    window::{Direction, WindowId, WindowNode},
 };
 
 #[derive(Debug)]
@@ -126,8 +126,10 @@ pub fn apply_action(
         Action::PanRight => state.camera.pan(Vector::new(config.camera.pan_step, 0.0)),
         Action::PanUp => state.camera.pan(Vector::new(0.0, -config.camera.pan_step)),
         Action::PanDown => state.camera.pan(Vector::new(0.0, config.camera.pan_step)),
-        Action::FocusLeft | Action::FocusUp => cycle_focus(state, -1),
-        Action::FocusRight | Action::FocusDown => cycle_focus(state, 1),
+        Action::FocusLeft => focus_in_direction(state, Direction::Left),
+        Action::FocusRight => focus_in_direction(state, Direction::Right),
+        Action::FocusUp => focus_in_direction(state, Direction::Up),
+        Action::FocusDown => focus_in_direction(state, Direction::Down),
         Action::CenterFocused => {
             if let Some(window) = state.world.focused_window() {
                 state.camera.center_on(window.center());
@@ -152,21 +154,12 @@ fn zoom_at_viewport_center(state: &mut SimulationState, zoom_factor: f64) {
     state.camera.zoom_at(viewport_center, zoom_factor);
 }
 
-fn cycle_focus(state: &mut SimulationState, direction: isize) {
-    let windows = state.world.windows();
-    if windows.is_empty() {
-        return;
+fn focus_in_direction(state: &mut SimulationState, direction: Direction) {
+    if state.world.focus_in_direction(direction).is_some() {
+        if let Some(window) = state.world.focused_window() {
+            state.camera.center_on(window.center());
+        }
     }
-
-    let current = windows
-        .iter()
-        .position(|window| window.focused)
-        .unwrap_or(0);
-    let len = windows.len() as isize;
-    let next = (current as isize + direction).rem_euclid(len) as usize;
-    let id = windows[next].id;
-
-    state.world.focus_window(id);
 }
 
 fn print_camera(mut writer: impl Write, camera: &Camera) -> Result<(), Box<dyn Error>> {
@@ -287,5 +280,36 @@ mod tests {
         .unwrap();
 
         assert_eq!(state.camera.position, center);
+    }
+
+    #[test]
+    fn applying_focus_right_changes_focus_when_right_window_exists() {
+        let mut state = build_initial_state();
+
+        apply_action(
+            Vec::new(),
+            &mut state,
+            &Config::default(),
+            Action::FocusRight,
+        )
+        .unwrap();
+
+        assert_eq!(state.world.focused_window_id(), Some(WindowId::new(2)));
+    }
+
+    #[test]
+    fn applying_focus_right_centers_camera_on_new_focus() {
+        let mut state = build_initial_state();
+
+        apply_action(
+            Vec::new(),
+            &mut state,
+            &Config::default(),
+            Action::FocusRight,
+        )
+        .unwrap();
+
+        let focused_center = state.world.focused_window().unwrap().center();
+        assert_eq!(state.camera.position, focused_center);
     }
 }
