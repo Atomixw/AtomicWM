@@ -4,6 +4,7 @@ use crate::{
     canvas::{Camera, World},
     config::Config,
     geometry::{Point, Rect, Size, Vector},
+    input::Action,
     window::{WindowId, WindowNode},
 };
 
@@ -11,6 +12,7 @@ use crate::{
 pub struct SimulationState {
     pub world: World,
     pub camera: Camera,
+    pub done: bool,
 }
 
 pub fn run_simulation(config: &Config) -> Result<(), Box<dyn Error>> {
@@ -39,26 +41,7 @@ fn write_simulation_output(
     writeln!(writer)?;
 
     writeln!(writer, "Actions:")?;
-    writeln!(
-        writer,
-        "  pan camera by {}",
-        format_vector(Vector::new(120.0, 80.0))
-    )?;
-    writeln!(writer, "  zoom camera at viewport center by 1.10")?;
-    writeln!(
-        writer,
-        "  move window 1 by {}",
-        format_vector(Vector::new(40.0, 20.0))
-    )?;
-    writeln!(
-        writer,
-        "  resize window 2 to {}",
-        format_size(Size::new(1280.0, 720.0))
-    )?;
-    writeln!(writer, "  focus window 3")?;
-    writeln!(writer, "  fit camera to world bounds")?;
-
-    apply_scripted_actions(state);
+    apply_scripted_actions(&mut writer, state, config)?;
     writeln!(writer)?;
 
     writeln!(writer, "Final camera:")?;
@@ -98,29 +81,92 @@ pub fn build_initial_state() -> SimulationState {
     SimulationState {
         world,
         camera: Camera::default_for_viewport(Size::new(1920.0, 1080.0)),
+        done: false,
     }
 }
 
-pub fn apply_scripted_actions(state: &mut SimulationState) {
-    state.camera.pan(Vector::new(120.0, 80.0));
+pub fn apply_scripted_actions(
+    mut writer: impl Write,
+    state: &mut SimulationState,
+    config: &Config,
+) -> Result<(), Box<dyn Error>> {
+    let actions = [
+        Action::PanRight,
+        Action::PanDown,
+        Action::ZoomIn,
+        Action::FocusRight,
+        Action::CenterFocused,
+        Action::FitAll,
+    ];
 
+    for action in actions {
+        apply_action(&mut writer, state, config, action)?;
+    }
+
+    Ok(())
+}
+
+pub fn apply_action(
+    mut writer: impl Write,
+    state: &mut SimulationState,
+    config: &Config,
+    action: Action,
+) -> Result<(), Box<dyn Error>> {
+    writeln!(writer, "  {}", action.name())?;
+
+    match action {
+        Action::Quit => state.done = true,
+        Action::SpawnTerminal => {
+            writeln!(writer, "    action spawn_terminal ignored in simulation")?;
+        }
+        Action::ZoomIn => zoom_at_viewport_center(state, config.camera.zoom_step),
+        Action::ZoomOut => zoom_at_viewport_center(state, 1.0 / config.camera.zoom_step),
+        Action::ResetZoom => state.camera.reset_zoom(),
+        Action::PanLeft => state.camera.pan(Vector::new(-config.camera.pan_step, 0.0)),
+        Action::PanRight => state.camera.pan(Vector::new(config.camera.pan_step, 0.0)),
+        Action::PanUp => state.camera.pan(Vector::new(0.0, -config.camera.pan_step)),
+        Action::PanDown => state.camera.pan(Vector::new(0.0, config.camera.pan_step)),
+        Action::FocusLeft | Action::FocusUp => cycle_focus(state, -1),
+        Action::FocusRight | Action::FocusDown => cycle_focus(state, 1),
+        Action::CenterFocused => {
+            if let Some(window) = state.world.focused_window() {
+                state.camera.center_on(window.center());
+            }
+        }
+        Action::FitAll => {
+            if let Some(bounds) = state.world.bounds() {
+                state.camera.fit_rect(bounds, config.appearance.gap);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn zoom_at_viewport_center(state: &mut SimulationState, zoom_factor: f64) {
     let viewport_center = Point::new(
         state.camera.viewport_size.width / 2.0,
         state.camera.viewport_size.height / 2.0,
     );
-    state.camera.zoom_at(viewport_center, 1.1);
 
-    state
-        .world
-        .move_window(WindowId::new(1), Vector::new(40.0, 20.0));
-    state
-        .world
-        .resize_window(WindowId::new(2), Size::new(1280.0, 720.0));
-    state.world.focus_window(WindowId::new(3));
+    state.camera.zoom_at(viewport_center, zoom_factor);
+}
 
-    if let Some(bounds) = state.world.bounds() {
-        state.camera.fit_rect(bounds, 80.0);
+fn cycle_focus(state: &mut SimulationState, direction: isize) {
+    let windows = state.world.windows();
+    if windows.is_empty() {
+        return;
     }
+
+    let current = windows
+        .iter()
+        .position(|window| window.focused)
+        .unwrap_or(0);
+    let len = windows.len() as isize;
+    let next = (current as isize + direction).rem_euclid(len) as usize;
+    let id = windows[next].id;
+
+    state.world.focus_window(id);
 }
 
 fn print_camera(mut writer: impl Write, camera: &Camera) -> Result<(), Box<dyn Error>> {
@@ -151,10 +197,6 @@ fn format_point(point: Point) -> String {
     format!("({:.2}, {:.2})", point.x, point.y)
 }
 
-fn format_vector(vector: Vector) -> String {
-    format!("({:.2}, {:.2})", vector.dx, vector.dy)
-}
-
 fn format_size(size: Size) -> String {
     format!("{:.2} x {:.2}", size.width, size.height)
 }
@@ -168,8 +210,10 @@ fn format_rect(rect: Rect) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_scripted_actions, build_initial_state, write_simulation_output};
-    use crate::{config::Config, window::WindowId};
+    use super::{
+        apply_action, apply_scripted_actions, build_initial_state, write_simulation_output,
+    };
+    use crate::{config::Config, input::Action, window::WindowId};
 
     #[test]
     fn simulation_can_run_without_panic() {
@@ -187,7 +231,7 @@ mod tests {
     fn simulation_world_ends_with_only_one_focused_window() {
         let mut state = build_initial_state();
 
-        apply_scripted_actions(&mut state);
+        apply_scripted_actions(Vec::new(), &mut state, &Config::default()).unwrap();
 
         let focused: Vec<_> = state
             .world
@@ -197,6 +241,51 @@ mod tests {
             .collect();
 
         assert_eq!(focused.len(), 1);
-        assert_eq!(focused[0].id, WindowId::new(3));
+        assert_eq!(focused[0].id, WindowId::new(2));
+    }
+
+    #[test]
+    fn applying_pan_right_changes_camera_position() {
+        let mut state = build_initial_state();
+
+        apply_action(Vec::new(), &mut state, &Config::default(), Action::PanRight).unwrap();
+
+        assert_eq!(state.camera.position.x, Config::default().camera.pan_step);
+    }
+
+    #[test]
+    fn applying_zoom_in_changes_zoom() {
+        let mut state = build_initial_state();
+
+        apply_action(Vec::new(), &mut state, &Config::default(), Action::ZoomIn).unwrap();
+
+        assert_eq!(state.camera.zoom, Config::default().camera.zoom_step);
+    }
+
+    #[test]
+    fn applying_fit_all_changes_camera_to_show_world_bounds() {
+        let mut state = build_initial_state();
+        let bounds = state.world.bounds().unwrap();
+
+        apply_action(Vec::new(), &mut state, &Config::default(), Action::FitAll).unwrap();
+
+        assert!(state.camera.viewport_rect_world().contains_rect(bounds));
+    }
+
+    #[test]
+    fn applying_center_focused_centers_camera_on_focused_window() {
+        let mut state = build_initial_state();
+        state.world.focus_window(WindowId::new(2));
+        let center = state.world.focused_window().unwrap().center();
+
+        apply_action(
+            Vec::new(),
+            &mut state,
+            &Config::default(),
+            Action::CenterFocused,
+        )
+        .unwrap();
+
+        assert_eq!(state.camera.position, center);
     }
 }

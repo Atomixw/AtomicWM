@@ -1,4 +1,7 @@
-use crate::config::{Config, ConfigError};
+use crate::{
+    config::{Config, ConfigError},
+    input::{KeyBindingParseError, KeyMap},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
@@ -23,13 +26,18 @@ impl AppMode {
 
 pub struct App {
     config: Config,
+    keymap: KeyMap,
     mode: AppMode,
 }
 
 impl App {
-    pub fn new(mode: AppMode) -> Result<Self, ConfigError> {
+    pub fn new(mode: AppMode) -> Result<Self, AppError> {
+        let config = Config::load()?;
+        let keymap = KeyMap::from_config(&config)?;
+
         Ok(Self {
-            config: Config::load()?,
+            config,
+            keymap,
             mode,
         })
     }
@@ -37,6 +45,7 @@ impl App {
     pub fn run(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         match self.mode {
             AppMode::Normal => {
+                let _keymap = &self.keymap;
                 println!("AtomicWM skeleton initialized. Config loaded.");
             }
             AppMode::Simulation => crate::sim::run_simulation(&self.config)?,
@@ -49,17 +58,33 @@ impl App {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppError {
     UnknownArgument(String),
+    Config(String),
+    KeyBinding(String),
 }
 
 impl std::fmt::Display for AppError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnknownArgument(argument) => write!(formatter, "unknown argument: {argument}"),
+            Self::Config(message) => write!(formatter, "{message}"),
+            Self::KeyBinding(message) => write!(formatter, "invalid keybinding: {message}"),
         }
     }
 }
 
 impl std::error::Error for AppError {}
+
+impl From<ConfigError> for AppError {
+    fn from(error: ConfigError) -> Self {
+        Self::Config(error.to_string())
+    }
+}
+
+impl From<KeyBindingParseError> for AppError {
+    fn from(error: KeyBindingParseError) -> Self {
+        Self::KeyBinding(error.to_string())
+    }
+}
 
 #[cfg(test)]
 mod tests {

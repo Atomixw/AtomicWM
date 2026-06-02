@@ -163,10 +163,12 @@ pub struct KeybindingsConfig {
     pub focus_right: String,
     pub focus_up: String,
     pub focus_down: String,
+    pub center_focused: String,
+    pub fit_all: String,
 }
 
 impl KeybindingsConfig {
-    fn entries(&self) -> [(&'static str, &str); 13] {
+    fn entries(&self) -> [(&'static str, &str); 15] {
         [
             ("keybindings.quit", &self.quit),
             ("keybindings.spawn_terminal", &self.spawn_terminal),
@@ -181,6 +183,8 @@ impl KeybindingsConfig {
             ("keybindings.focus_right", &self.focus_right),
             ("keybindings.focus_up", &self.focus_up),
             ("keybindings.focus_down", &self.focus_down),
+            ("keybindings.center_focused", &self.center_focused),
+            ("keybindings.fit_all", &self.fit_all),
         ]
     }
 }
@@ -201,6 +205,8 @@ impl Default for KeybindingsConfig {
             focus_right: "Super+Right".to_string(),
             focus_up: "Super+Up".to_string(),
             focus_down: "Super+Down".to_string(),
+            center_focused: "Super+C".to_string(),
+            fit_all: "Super+W".to_string(),
         }
     }
 }

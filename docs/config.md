@@ -47,6 +47,8 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 - `focus_right`
 - `focus_up`
 - `focus_down`
+- `center_focused`
+- `fit_all`
 
 `[commands]`
 
