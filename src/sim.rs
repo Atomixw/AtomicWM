@@ -137,6 +137,10 @@ pub fn apply_scripted_actions(
         apply_action(&mut writer, state, config, action)?;
     }
 
+    if config.snapping.enabled {
+        demonstrate_snapping(&mut writer, state, config)?;
+    }
+
     Ok(())
 }
 
@@ -192,6 +196,40 @@ fn focus_in_direction(state: &mut SimulationState, direction: Direction) {
             state.camera.center_on(window.center());
         }
     }
+}
+
+fn demonstrate_snapping(
+    mut writer: impl Write,
+    state: &mut SimulationState,
+    config: &Config,
+) -> Result<(), Box<dyn Error>> {
+    state.world.add_window(WindowNode::new(
+        WindowId::new(6),
+        "Snap Target",
+        "snap-target",
+        Rect::new(3000.0, 0.0, 400.0, 300.0),
+    ));
+    state.world.add_window(WindowNode::new(
+        WindowId::new(7),
+        "Snap Moving",
+        "snap-moving",
+        Rect::new(2500.0, 0.0, 400.0, 300.0),
+    ));
+
+    let before = state.world.window(WindowId::new(7)).unwrap().rect();
+    writeln!(writer, "  snap window 7 before {}", format_rect(before))?;
+
+    state.world.move_window_with_snapping(
+        WindowId::new(7),
+        Vector::new(76.0, 0.0),
+        config.snapping.threshold,
+        config.snapping.gap,
+    );
+
+    let after = state.world.window(WindowId::new(7)).unwrap().rect();
+    writeln!(writer, "  snap window 7 after {}", format_rect(after))?;
+
+    Ok(())
 }
 
 fn print_camera(mut writer: impl Write, camera: &Camera) -> Result<(), Box<dyn Error>> {

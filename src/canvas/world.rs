@@ -2,7 +2,8 @@ use crate::{
     canvas::Camera,
     geometry::{Rect, Size, Vector},
     window::{
-        Direction, PlacementMode, PlacementRequest, WindowId, WindowNode, find_window_in_direction,
+        Direction, PlacementMode, PlacementRequest, WindowId, WindowNode, find_snap_adjustment,
+        find_window_in_direction,
     },
 };
 
@@ -108,6 +109,36 @@ impl World {
         };
 
         window.move_by(delta);
+        true
+    }
+
+    pub fn move_window_with_snapping(
+        &mut self,
+        id: WindowId,
+        delta: Vector,
+        threshold: f64,
+        gap: f64,
+    ) -> bool {
+        let Some(window) = self.window(id) else {
+            return false;
+        };
+
+        let moved = window.rect().translate(delta.dx, delta.dy);
+        let targets = self
+            .windows
+            .iter()
+            .filter(|window| window.id != id)
+            .map(|window| (&window.id, &window.rect));
+        let rect = if let Some(candidate) = find_snap_adjustment(moved, targets, threshold, gap) {
+            moved.translate(candidate.adjustment.dx, candidate.adjustment.dy)
+        } else {
+            moved
+        };
+
+        if let Some(window) = self.window_mut(id) {
+            window.set_rect(rect);
+        }
+
         true
     }
 
@@ -302,6 +333,72 @@ mod tests {
             Rect::new(10.0, 20.0, 100.0, 100.0)
         );
         assert!(!world.move_window(WindowId::new(99), Vector::zero()));
+    }
+
+    #[test]
+    fn move_window_with_snapping_moves_normally_without_snap() {
+        let mut world = World::new();
+        let id = WindowId::new(1);
+
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(400.0, 0.0, 100.0, 100.0)));
+
+        assert!(world.move_window_with_snapping(id, Vector::new(50.0, 0.0), 10.0, 0.0));
+        assert_eq!(
+            world.window(id).unwrap().rect(),
+            Rect::new(50.0, 0.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn move_window_with_snapping_snaps_when_close_enough() {
+        let mut world = World::new();
+        let id = WindowId::new(1);
+
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(210.0, 0.0, 100.0, 100.0)));
+
+        assert!(world.move_window_with_snapping(id, Vector::new(105.0, 0.0), 10.0, 0.0));
+        assert_eq!(
+            world.window(id).unwrap().rect(),
+            Rect::new(110.0, 0.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn move_window_with_snapping_returns_false_for_missing_window() {
+        let mut world = World::new();
+
+        assert!(!world.move_window_with_snapping(WindowId::new(99), Vector::zero(), 10.0, 0.0));
+    }
+
+    #[test]
+    fn snapping_does_not_move_target_window() {
+        let mut world = World::new();
+
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+        world.add_window(window(2, Rect::new(210.0, 0.0, 100.0, 100.0)));
+
+        world.move_window_with_snapping(WindowId::new(1), Vector::new(105.0, 0.0), 10.0, 0.0);
+
+        assert_eq!(
+            world.window(WindowId::new(2)).unwrap().rect(),
+            Rect::new(210.0, 0.0, 100.0, 100.0)
+        );
+    }
+
+    #[test]
+    fn snapping_ignores_the_moving_window_itself() {
+        let mut world = World::new();
+        let id = WindowId::new(1);
+
+        world.add_window(window(1, Rect::new(0.0, 0.0, 100.0, 100.0)));
+
+        assert!(world.move_window_with_snapping(id, Vector::new(5.0, 0.0), 10.0, 0.0));
+        assert_eq!(
+            world.window(id).unwrap().rect(),
+            Rect::new(5.0, 0.0, 100.0, 100.0)
+        );
     }
 
     #[test]

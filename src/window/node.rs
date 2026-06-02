@@ -46,6 +46,14 @@ impl WindowNode {
         self.rect = Rect::from_origin_size(self.rect.origin, size);
     }
 
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
+    pub fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+
     pub fn center(&self) -> Point {
         self.rect.center()
     }

@@ -12,6 +12,7 @@ pub struct Config {
     pub general: GeneralConfig,
     pub camera: CameraConfig,
     pub appearance: AppearanceConfig,
+    pub snapping: SnappingConfig,
     pub keybindings: KeybindingsConfig,
     pub commands: CommandsConfig,
 }
@@ -63,6 +64,8 @@ impl Config {
         validate_color("appearance.background", &self.appearance.background)?;
         validate_color("appearance.focused_border", &self.appearance.focused_border)?;
         validate_color("appearance.normal_border", &self.appearance.normal_border)?;
+        validate_non_negative("snapping.threshold", self.snapping.threshold)?;
+        validate_non_negative("snapping.gap", self.snapping.gap)?;
         validate_not_empty("commands.terminal", &self.commands.terminal)?;
 
         for (name, value) in self.keybindings.entries() {
@@ -83,6 +86,7 @@ impl Default for Config {
             general: GeneralConfig::default(),
             camera: CameraConfig::default(),
             appearance: AppearanceConfig::default(),
+            snapping: SnappingConfig::default(),
             keybindings: KeybindingsConfig::default(),
             commands: CommandsConfig::default(),
         }
@@ -143,6 +147,24 @@ impl Default for AppearanceConfig {
             background: "#111111".to_string(),
             focused_border: "#7C3AED".to_string(),
             normal_border: "#333333".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SnappingConfig {
+    pub enabled: bool,
+    pub threshold: f64,
+    pub gap: f64,
+}
+
+impl Default for SnappingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            threshold: 24.0,
+            gap: 0.0,
         }
     }
 }
@@ -400,6 +422,32 @@ mod tests {
     fn invalid_colors_fail_validation() {
         let mut config = Config::default();
         config.appearance.background = "111111".to_string();
+
+        assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
+    }
+
+    #[test]
+    fn default_snapping_config_is_valid() {
+        let config = Config::default();
+
+        assert!(config.snapping.enabled);
+        assert_eq!(config.snapping.threshold, 24.0);
+        assert_eq!(config.snapping.gap, 0.0);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn negative_snapping_threshold_fails_validation() {
+        let mut config = Config::default();
+        config.snapping.threshold = -1.0;
+
+        assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
+    }
+
+    #[test]
+    fn negative_snapping_gap_fails_validation() {
+        let mut config = Config::default();
+        config.snapping.gap = -1.0;
 
         assert!(matches!(config.validate(), Err(ConfigError::Validation(_))));
     }

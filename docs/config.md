@@ -32,6 +32,12 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 - `focused_border`
 - `normal_border`
 
+`[snapping]`
+
+- `enabled`
+- `threshold`
+- `gap`
+
 `[keybindings]`
 
 - `quit`
@@ -62,6 +68,8 @@ If the file exists and cannot be read, parsing fails, or validation fails, start
 - `camera.max_zoom` must be greater than `camera.min_zoom`
 - `appearance.border_width` must be greater than or equal to `0`
 - `appearance.gap` must be greater than or equal to `0`
+- `snapping.threshold` must be greater than or equal to `0`
+- `snapping.gap` must be greater than or equal to `0`
 - colors must use `#RRGGBB`
 - `commands.terminal` must not be empty
 - keybinding strings must not be empty

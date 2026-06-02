@@ -17,6 +17,11 @@ background = "#111111"
 focused_border = "#7C3AED"
 normal_border = "#333333"
 
+[snapping]
+enabled = true
+threshold = 24.0
+gap = 0.0
+
 [keybindings]
 quit = "Super+Shift+Q"
 spawn_terminal = "Super+Enter"
