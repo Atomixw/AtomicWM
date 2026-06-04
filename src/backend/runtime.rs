@@ -9,22 +9,25 @@ pub struct BackendConfig {
     pub max_dispatch_cycles: Option<usize>,
     pub output: OutputState,
     pub background: Color,
+    pub placement_gap: f64,
 }
 
 impl BackendConfig {
-    pub fn compositor(background: Color) -> Self {
+    pub fn compositor(background: Color, placement_gap: f64) -> Self {
         Self {
             max_dispatch_cycles: None,
             output: OutputState::default_headless(),
             background,
+            placement_gap,
         }
     }
 
-    pub fn backend_test(background: Color) -> Self {
+    pub fn backend_test(background: Color, placement_gap: f64) -> Self {
         Self {
             max_dispatch_cycles: Some(3),
             output: OutputState::default_headless(),
             background,
+            placement_gap,
         }
     }
 }
@@ -41,7 +44,7 @@ impl Backend {
         let renderer = ClearRenderer::new(config.background);
 
         Ok(Self {
-            wayland: WaylandBackend::new()?,
+            wayland: WaylandBackend::new(config.output.size, config.placement_gap)?,
             renderer,
             config,
             last_frame: None,
@@ -135,11 +138,11 @@ mod tests {
         let background = test_background();
 
         assert_eq!(
-            BackendConfig::backend_test(background).max_dispatch_cycles,
+            BackendConfig::backend_test(background, 8.0).max_dispatch_cycles,
             Some(3)
         );
         assert_eq!(
-            BackendConfig::compositor(background).max_dispatch_cycles,
+            BackendConfig::compositor(background, 8.0).max_dispatch_cycles,
             None
         );
     }
@@ -161,7 +164,8 @@ mod tests {
         }
 
         {
-            let mut backend = Backend::new(BackendConfig::backend_test(test_background())).unwrap();
+            let mut backend =
+                Backend::new(BackendConfig::backend_test(test_background(), 8.0)).unwrap();
             backend.run().unwrap();
 
             assert_eq!(backend.last_frame().unwrap().background, test_background());

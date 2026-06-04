@@ -23,6 +23,8 @@ pub struct WindowNode {
     pub app_id: String,
     pub rect: Rect,
     pub focused: bool,
+    pub mapped: bool,
+    pub pending_size: Option<Size>,
     pub decoration_mode: DecorationMode,
 }
 
@@ -39,6 +41,8 @@ impl WindowNode {
             app_id: app_id.into(),
             rect,
             focused: false,
+            mapped: true,
+            pending_size: None,
             decoration_mode: DecorationMode::Border,
         }
     }

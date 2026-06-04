@@ -11,6 +11,8 @@ This is still early infrastructure. It creates a Wayland display, registers a li
 - automatic Wayland socket selection
 - client socket acceptance
 - minimal compositor global
+- xdg-shell global
+- xdg toplevel lifecycle tracking
 - one logical output
 - clear-screen frame path
 - event loop dispatch
@@ -18,7 +20,6 @@ This is still early infrastructure. It creates a Wayland display, registers a li
 
 ## Not Implemented
 
-- xdg-shell
 - layer-shell
 - XWayland
 - GPU setup
@@ -26,8 +27,9 @@ This is still early infrastructure. It creates a Wayland display, registers a li
 - keyboard or pointer input
 - real window management
 - connecting logical `World` windows to Wayland surfaces
+- advanced xdg-shell configure negotiation
 
-The backend does not display application windows yet. Clear rendering uses the configured background color, but visible GPU-backed presentation is not implemented yet.
+The backend can track xdg-shell toplevels, but it does not display application windows yet. Clear rendering uses the configured background color, but visible GPU-backed presentation is not implemented yet.
 
 ## Running
 
@@ -49,4 +51,4 @@ Run the internal simulation:
 cargo run -- --simulate
 ```
 
-xdg-shell is intentionally left out. The next backend step should add one protocol at a time after the event loop and socket lifecycle are stable.
+The next backend step should connect tracked xdg toplevels to surface rendering without adding unrelated protocols.

@@ -54,14 +54,20 @@ impl App {
                     "AtomicWM starting minimal renderer. Client windows are not supported yet."
                 );
                 let background = Color::from_hex_rgb(&self.config.appearance.background)?;
-                let mut backend = Backend::new(BackendConfig::compositor(background))?;
+                let mut backend = Backend::new(BackendConfig::compositor(
+                    background,
+                    self.config.appearance.gap,
+                ))?;
                 backend.run()?;
             }
             RuntimeMode::Simulation => crate::sim::run_simulation(&self.config)?,
             RuntimeMode::BackendTest => {
                 println!("AtomicWM starting minimal renderer backend test.");
                 let background = Color::from_hex_rgb(&self.config.appearance.background)?;
-                let mut backend = Backend::new(BackendConfig::backend_test(background))?;
+                let mut backend = Backend::new(BackendConfig::backend_test(
+                    background,
+                    self.config.appearance.gap,
+                ))?;
                 backend.run()?;
             }
         }

@@ -1,7 +1,9 @@
 use std::{ffi::OsString, sync::Arc, time::Duration};
 
 use smithay::{
-    delegate_compositor,
+    backend::renderer::utils::on_commit_buffer_handler,
+    delegate_compositor, delegate_seat, delegate_xdg_shell,
+    input::{Seat, SeatHandler, SeatState, pointer::CursorImageStatus},
     reexports::{
         calloop::EventLoop,
         wayland_server::{
@@ -12,9 +14,12 @@ use smithay::{
     },
     wayland::{
         compositor::{CompositorClientState, CompositorHandler, CompositorState},
+        shell::xdg::XdgShellState,
         socket::ListeningSocketSource,
     },
 };
+
+use crate::{backend::state::BackendWindowState, canvas::Camera, geometry::Size};
 
 use super::runtime::BackendError;
 
@@ -25,7 +30,7 @@ pub struct WaylandBackend {
 }
 
 impl WaylandBackend {
-    pub fn new() -> Result<Self, BackendError> {
+    pub fn new(output_size: Size, placement_gap: f64) -> Result<Self, BackendError> {
         let event_loop = EventLoop::try_new().map_err(|error| {
             BackendError::Wayland(format!("event loop creation failed: {error}"))
         })?;
@@ -34,7 +39,16 @@ impl WaylandBackend {
         })?;
         let display_handle = display.handle();
         let compositor_state = CompositorState::new::<WaylandState>(&display_handle);
-        let wayland = WaylandState { compositor_state };
+        let xdg_shell_state = XdgShellState::new::<WaylandState>(&display_handle);
+        let window_state =
+            BackendWindowState::new(Camera::default_for_viewport(output_size), placement_gap);
+        let wayland = WaylandState {
+            compositor_state,
+            xdg_shell_state,
+            seat_state: SeatState::new(),
+            window_state,
+            xdg_toplevels: Vec::new(),
+        };
 
         let socket = ListeningSocketSource::new_auto().map_err(|error| {
             BackendError::Wayland(format!("Wayland socket creation failed: {error}"))
@@ -89,7 +103,11 @@ pub struct LoopState {
 }
 
 pub struct WaylandState {
-    compositor_state: CompositorState,
+    pub(crate) compositor_state: CompositorState,
+    pub(crate) xdg_shell_state: XdgShellState,
+    pub(crate) seat_state: SeatState<Self>,
+    pub(crate) window_state: BackendWindowState,
+    pub(crate) xdg_toplevels: Vec<super::xdg_shell::TrackedToplevel>,
 }
 
 impl CompositorHandler for WaylandState {
@@ -104,7 +122,10 @@ impl CompositorHandler for WaylandState {
             .compositor_state
     }
 
-    fn commit(&mut self, _surface: &WlSurface) {}
+    fn commit(&mut self, surface: &WlSurface) {
+        on_commit_buffer_handler::<Self>(surface);
+        self.sync_toplevel_commit(surface);
+    }
 }
 
 impl AsMut<CompositorState> for WaylandState {
@@ -113,7 +134,23 @@ impl AsMut<CompositorState> for WaylandState {
     }
 }
 
+impl SeatHandler for WaylandState {
+    type KeyboardFocus = WlSurface;
+    type PointerFocus = WlSurface;
+    type TouchFocus = WlSurface;
+
+    fn seat_state(&mut self) -> &mut SeatState<Self> {
+        &mut self.seat_state
+    }
+
+    fn focus_changed(&mut self, _seat: &Seat<Self>, _focused: Option<&WlSurface>) {}
+
+    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: CursorImageStatus) {}
+}
+
 delegate_compositor!(WaylandState);
+delegate_seat!(WaylandState);
+delegate_xdg_shell!(WaylandState);
 
 #[derive(Default)]
 struct ClientState {
